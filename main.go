@@ -12,12 +12,14 @@ import (
 
 func main() {
 	logger := log.New(os.Stdout, "logger >>", log.Default().Flags())
-	hh := handler.NewHello(logger)
+	// hh := handler.NewHello(logger)
 	gh := handler.NewGoodBye(logger)
 	// we dont use the defaultServeMux (we are better)
 	sm := http.NewServeMux()
 	//Create a handler with method ServeHTTP
-	sm.Handle("/", hh)
+	ph := handler.NewProduct(logger)
+
+	sm.Handle("/", ph)
 	sm.Handle("/goodbye", gh)
 
 	server := &http.Server{
