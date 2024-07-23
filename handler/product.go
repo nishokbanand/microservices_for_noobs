@@ -25,17 +25,16 @@ func (p *Product) GetRequest(rw http.ResponseWriter, r *http.Request) {
 	err := lp.ToJSON(rw)
 	if err != nil {
 		http.Error(rw, "Unable to Marshal", http.StatusInternalServerError)
+		return
 	}
 }
 
 func (p *Product) PostRequest(rw http.ResponseWriter, r *http.Request) {
-	//We use NewDecoder instead of unmarshal
-	// d, _ := io.ReadAll(r.Body)
-	// json.Unmarshal(d, &data.Product{})
 	prod := &data.Product{}
 	err := prod.FromJSON(r.Body)
 	if err != nil {
 		http.Error(rw, "Unable to Unmarshall the request", http.StatusBadRequest)
+		return
 	}
 	data.AddProduct(prod)
 	p.l.Printf("Added: %#v", prod)
@@ -47,8 +46,9 @@ func (p *Product) PutRequest(rw http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		p.l.Fatal(err)
+		p.l.Println("[ERROR] in Getting ID", err)
 		http.Error(rw, "Unable to get ID", http.StatusBadRequest)
+		return
 	}
 	println("here")
 	fmt.Println(r.Context().Value(KeyProduct{}))
@@ -56,18 +56,27 @@ func (p *Product) PutRequest(rw http.ResponseWriter, r *http.Request) {
 	prod.ID = id
 	err = data.PutProduct(prod)
 	if err != nil {
-		p.l.Fatal(err)
+		//Fatal does os.Exit(1) after printing
+		p.l.Println("[ERROR] in getting the product", err)
 		http.Error(rw, "Unable to get the product", http.StatusBadRequest)
+		return
 	}
 }
 
-func (p *Product) MiddleWareFromJSON(next http.Handler) http.Handler {
+func (p *Product) MiddleWareValidateProduct(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		prod := &data.Product{}
 		err := prod.FromJSON(r.Body)
 		if err != nil {
-			p.l.Fatal(err)
+			p.l.Println("[ERROR] in Unmarshall", err)
 			http.Error(rw, "Unable to Unmarshall the request", http.StatusBadRequest)
+			return
+		}
+		err = prod.Validate()
+		if err != nil {
+			p.l.Println("[ERROR] in validation", err)
+			http.Error(rw, fmt.Sprintf("Unable to Validate the request : %s", err), http.StatusBadRequest)
+			return
 		}
 		ctx := context.WithValue(r.Context(), KeyProduct{}, prod)
 		r = r.WithContext(ctx)

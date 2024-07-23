@@ -4,18 +4,36 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"regexp"
 	"time"
+
+	"github.com/go-playground/validator/v10"
 )
 
 type Product struct {
-	ID          int     `json:"id"`
-	Name        string  `json:"name"`
+	ID          int     `json:"id" `
+	Name        string  `json:"name" validate:"required"`
 	Description string  `json:"description"`
-	Price       float32 `json:"price"`
-	Sku         string  `json:"sku"`
+	Price       float32 `json:"price" validate:"gt=0"`
+	Sku         string  `json:"sku" validate:"required,sku"`
 	Created_on  string  `json:"-"`
 	Updated_on  string  `json:"-"`
 	Deleted_on  string  `json:"-"`
+}
+
+func (p *Product) Validate() error {
+	validator := validator.New()
+	validator.RegisterValidation("sku", skuValidation)
+	return validator.Struct(p)
+}
+
+func skuValidation(fl validator.FieldLevel) bool {
+	regex := regexp.MustCompile(`[a-z]+-[a-z]+-[a-z]`)
+	matches := regex.FindAllString(fl.Field().String(), -1)
+	if len(matches) != 1 {
+		return false
+	}
+	return true
 }
 
 type Products []*Product
@@ -73,7 +91,7 @@ var products = []*Product{
 		Name:        "Latte",
 		Description: "sweet",
 		Price:       4.50,
-		Sku:         "abc123",
+		Sku:         "abc-def-ghi",
 		Created_on:  time.Now().UTC().String(),
 		Updated_on:  time.Now().UTC().String(),
 	},
@@ -82,7 +100,7 @@ var products = []*Product{
 		Name:        "Espresso",
 		Description: "Dont drink",
 		Price:       2.50,
-		Sku:         "123abc",
+		Sku:         "ghi-def-abc",
 		Created_on:  time.Now().UTC().String(),
 		Updated_on:  time.Now().UTC().String(),
 	},
