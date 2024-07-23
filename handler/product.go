@@ -1,12 +1,13 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
-	"regexp"
 	"strconv"
 
+	"github.com/gorilla/mux"
 	"github.com/nishokbanand/microservices/data"
 )
 
@@ -17,23 +18,7 @@ type Product struct {
 func NewProduct(l *log.Logger) *Product {
 	return &Product{l}
 }
-
-func (p *Product) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet {
-		p.getRequest(rw, r)
-		return
-	} else if r.Method == http.MethodPost {
-		p.postRequest(rw, r)
-		return
-	} else if r.Method == http.MethodPut {
-		p.putRequest(rw, r)
-		return
-	}
-	//catch all other methods
-	rw.WriteHeader(http.StatusMethodNotAllowed)
-}
-
-func (p *Product) getRequest(rw http.ResponseWriter, r *http.Request) {
+func (p *Product) GetRequest(rw http.ResponseWriter, r *http.Request) {
 	lp := data.GetProducts()
 	//we use NewEncoder instead of marshal to avoid having to buffer the output to an in memory slice of bytes
 	// d, err :=json.Marshal(lp)
@@ -43,7 +28,7 @@ func (p *Product) getRequest(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (p *Product) postRequest(rw http.ResponseWriter, r *http.Request) {
+func (p *Product) PostRequest(rw http.ResponseWriter, r *http.Request) {
 	//We use NewDecoder instead of unmarshal
 	// d, _ := io.ReadAll(r.Body)
 	// json.Unmarshal(d, &data.Product{})
@@ -56,37 +41,36 @@ func (p *Product) postRequest(rw http.ResponseWriter, r *http.Request) {
 	p.l.Printf("Added: %#v", prod)
 }
 
-func (p *Product) putRequest(rw http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
-	regex := regexp.MustCompile(`/([0-9]+)`)
-	group := regex.FindAllStringSubmatch(path, -1)
-	//FindAllStringSubmatch returns a slice of slices where the outerslice represents the matches by order
-	//and the inner slice represents the exact match followed by capture groups
-	//for eg : here the regex matches /[0-9]+ , when the path is usr/product/1234/details/456
-	//the group becomes [[/1234,1234],[/456,456]]
+type KeyProduct struct{}
 
-	if group == nil {
-		http.Error(rw, "Error in URI", http.StatusBadRequest)
-	}
-	fmt.Println(group[0])
-	fmt.Println(group[0][1])
-
-	//bounce off if the uri has more than one id
-	if len(group[0]) != 2 {
-		http.Error(rw, "Error in URI", http.StatusBadRequest)
-	}
-	//get the exact match
-	idString := group[0][1]
-	id, err := strconv.Atoi(idString)
-	if err != nil {
-		http.Error(rw, "Error in URI", http.StatusBadRequest)
-	}
-	prod := &data.Product{}
-	err = prod.FromJSON(r.Body)
-	prod.ID = id
+func (p *Product) PutRequest(rw http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
 		p.l.Fatal(err)
-		http.Error(rw, "Unable to Unmarshall the request", http.StatusBadRequest)
+		http.Error(rw, "Unable to get ID", http.StatusBadRequest)
 	}
-	data.PutProduct(prod)
+	println("here")
+	fmt.Println(r.Context().Value(KeyProduct{}))
+	prod := r.Context().Value(KeyProduct{}).(*data.Product)
+	prod.ID = id
+	err = data.PutProduct(prod)
+	if err != nil {
+		p.l.Fatal(err)
+		http.Error(rw, "Unable to get the product", http.StatusBadRequest)
+	}
+}
+
+func (p *Product) MiddleWareFromJSON(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		prod := &data.Product{}
+		err := prod.FromJSON(r.Body)
+		if err != nil {
+			p.l.Fatal(err)
+			http.Error(rw, "Unable to Unmarshall the request", http.StatusBadRequest)
+		}
+		ctx := context.WithValue(r.Context(), KeyProduct{}, prod)
+		r = r.WithContext(ctx)
+		next.ServeHTTP(rw, r)
+	})
 }

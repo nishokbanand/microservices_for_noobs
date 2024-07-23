@@ -2,25 +2,31 @@ package main
 
 import (
 	"context"
-	"github.com/nishokbanand/microservices/handler"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/nishokbanand/microservices/handler"
 )
 
 func main() {
 	logger := log.New(os.Stdout, "logger >>", log.Default().Flags())
-	// hh := handler.NewHello(logger)
-	gh := handler.NewGoodBye(logger)
-	// we dont use the defaultServeMux (we are better)
-	sm := http.NewServeMux()
+	sm := mux.NewRouter()
+
 	//Create a handler with method ServeHTTP
 	ph := handler.NewProduct(logger)
+	getRouter := sm.Methods(http.MethodGet).Subrouter()
+	getRouter.HandleFunc("/", ph.GetRequest)
 
-	sm.Handle("/", ph)
-	sm.Handle("/goodbye", gh)
+	postRouter := sm.Methods(http.MethodPost).Subrouter()
+	postRouter.HandleFunc("/", ph.PostRequest)
+
+	putRouter := sm.Methods(http.MethodPut).Subrouter()
+	putRouter.HandleFunc("/{id:[0-9]+}", ph.PutRequest)
+	putRouter.Use(ph.MiddleWareFromJSON)
 
 	server := &http.Server{
 		Addr:         ":9090",
