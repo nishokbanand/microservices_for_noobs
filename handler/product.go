@@ -30,12 +30,7 @@ func (p *Product) GetRequest(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Product) PostRequest(rw http.ResponseWriter, r *http.Request) {
-	prod := &data.Product{}
-	err := prod.FromJSON(r.Body)
-	if err != nil {
-		http.Error(rw, "Unable to Unmarshall the request", http.StatusBadRequest)
-		return
-	}
+	prod := r.Context().Value(KeyProduct{}).(*data.Product)
 	data.AddProduct(prod)
 	p.l.Printf("Added: %#v", prod)
 }
@@ -50,7 +45,6 @@ func (p *Product) PutRequest(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, "Unable to get ID", http.StatusBadRequest)
 		return
 	}
-	println("here")
 	fmt.Println(r.Context().Value(KeyProduct{}))
 	prod := r.Context().Value(KeyProduct{}).(*data.Product)
 	prod.ID = id
@@ -63,6 +57,23 @@ func (p *Product) PutRequest(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (p *Product) DeleteRequest(rw http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		p.l.Println("[ERROR] in Getting ID", err)
+		http.Error(rw, "Unable to get ID", http.StatusBadRequest)
+		return
+	}
+	println("here")
+	err = data.DeleteProduct(id)
+	if err != nil {
+		//Fatal does os.Exit(1) after printing
+		p.l.Println("[ERROR] in getting the product", err)
+		http.Error(rw, "Unable to get the product", http.StatusBadRequest)
+		return
+	}
+}
 func (p *Product) MiddleWareValidateProduct(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		prod := &data.Product{}

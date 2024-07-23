@@ -29,6 +29,9 @@ func main() {
 	putRouter.HandleFunc("/{id:[0-9]+}", ph.PutRequest)
 	putRouter.Use(ph.MiddleWareValidateProduct)
 
+	deleteRouter := sm.Methods(http.MethodDelete).Subrouter()
+	deleteRouter.HandleFunc("/{id:[0-9]+}", ph.DeleteRequest)
+
 	server := &http.Server{
 		Addr:         ":9090",
 		Handler:      sm,

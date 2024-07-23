@@ -69,6 +69,15 @@ func PutProduct(p *Product) error {
 	return nil
 }
 
+func DeleteProduct(id int) error {
+	idx, err := GetProduct(id)
+	if err != nil {
+		return err
+	}
+	products = append(products[:idx], products[idx+1:]...)
+	return nil
+}
+
 func GetProduct(id int) (int, error) {
 	for idx, value := range products {
 		if value.ID == id {
