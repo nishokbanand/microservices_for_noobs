@@ -2,14 +2,14 @@ package main
 
 import (
 	"context"
+	gohandlers "github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
+	"github.com/nishokbanand/microservices/handler"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
-
-	"github.com/gorilla/mux"
-	"github.com/nishokbanand/microservices/handler"
 )
 
 func main() {
@@ -32,9 +32,11 @@ func main() {
 	deleteRouter := sm.Methods(http.MethodDelete).Subrouter()
 	deleteRouter.HandleFunc("/{id:[0-9]+}", ph.DeleteRequest)
 
+	ch := gohandlers.CORS(gohandlers.AllowedOrigins([]string{"locahost:9090"}))
+
 	server := &http.Server{
 		Addr:         ":9090",
-		Handler:      sm,
+		Handler:      ch(sm),
 		ReadTimeout:  time.Second * 1,
 		WriteTimeout: time.Second * 1,
 		IdleTimeout:  time.Second * 120,
