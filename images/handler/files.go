@@ -6,14 +6,15 @@ import (
 	"path/filepath"
 
 	"github.com/gorilla/mux"
+	"github.com/nishokbanand/imageHandler/files"
 )
 
 type File struct {
 	l *log.Logger
-	s *files.Storage
+	s files.Storage
 }
 
-func NewFiles(l *log.Logger, s *files.Storage) *File {
+func NewFiles(l *log.Logger, s files.Storage) *File {
 	return &File{l, s}
 }
 
@@ -32,10 +33,9 @@ func (f *File) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 func (f *File) SaveFile(id string, filename string, rw http.ResponseWriter, r *http.Request) {
 	f.l.Println("Save file for the id", id, "filename", filename)
 	fp := filepath.Join(id, filename)
-	err := files.Store(fp)
+	err := f.s.Save(fp, r.Body)
 	if err != nil {
-		f.l.Println("Unable to save the file")
+		f.l.Println("Unable to save the file", err)
 		http.Error(rw, "Unable to save the file", http.StatusInternalServerError)
 	}
-
 }
