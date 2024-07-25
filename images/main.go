@@ -30,6 +30,10 @@ func main() {
 
 	getImgReq := sm.Methods(http.MethodGet).Subrouter()
 	getImgReq.Handle("/images/{id:[0-9]+}/{filename:[a-zA-Z]+\\.[a-z]{3}}", http.StripPrefix("/images/", http.FileServer(http.Dir(basePath))))
+
+	gzipHandler := handler.Gzip{}
+	getImgReq.Use(gzipHandler.GzipMiddleware)
+
 	server := &http.Server{
 		Addr:         ":9090",
 		Handler:      sm,
