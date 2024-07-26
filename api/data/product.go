@@ -68,6 +68,11 @@ func PutProduct(p *Product) error {
 	products[idx] = p
 	return nil
 }
+func (p *Product) ToJSON(wr io.Writer) error {
+	encoder := json.NewEncoder(wr)
+	err := encoder.Encode(p)
+	return err
+}
 
 func DeleteProduct(id int) error {
 	idx, err := GetProduct(id)
@@ -76,6 +81,14 @@ func DeleteProduct(id int) error {
 	}
 	products = append(products[:idx], products[idx+1:]...)
 	return nil
+}
+
+func FindProduct(id int) (*Product, error) {
+	idx, err := GetProduct(id)
+	if err != nil {
+		return nil, err
+	}
+	return products[idx], nil
 }
 
 func GetProduct(id int) (int, error) {

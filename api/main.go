@@ -2,24 +2,35 @@ package main
 
 import (
 	"context"
-	gohandlers "github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
-	"github.com/nishokbanand/microservices/handler"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
+	gohandlers "github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
+	protos "github.com/nishokbanand/learngrpc/protos/currency"
+	"github.com/nishokbanand/microservices/handler"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
 	logger := log.New(os.Stdout, "logger >>", log.Default().Flags())
 	sm := mux.NewRouter()
+	conn, err := grpc.NewClient("localhost:9092", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	defer conn.Close()
+	if err != nil {
+		logger.Fatal("cannot make a connection")
+	}
+	cc := protos.NewCurrencyClient(conn)
 
 	//Create a handler with method ServeHTTP
-	ph := handler.NewProduct(logger)
+	ph := handler.NewProduct(logger, cc)
 	getRouter := sm.Methods(http.MethodGet).Subrouter()
 	getRouter.HandleFunc("/", ph.GetRequest)
+	getRouter.HandleFunc("/{id:[0-9]+}", ph.ListOneProduct)
 
 	postRouter := sm.Methods(http.MethodPost).Subrouter()
 	postRouter.HandleFunc("/", ph.PostRequest)
