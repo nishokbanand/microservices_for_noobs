@@ -5,8 +5,9 @@ import (
 	"encoding/xml"
 	"fmt"
 	"log"
-	// "net/http"
 	"os"
+	"path"
+	"runtime"
 	"strconv"
 )
 
@@ -16,10 +17,21 @@ type ExchangeRates struct {
 }
 
 func NewRates(l *log.Logger) (*ExchangeRates, error) {
-	getDataFromFile()
 	ex := &ExchangeRates{l, map[string]float64{}}
 	ex.getRates()
 	return ex, nil
+}
+
+func (ex *ExchangeRates) GetRate(base, destination string) (float64, error) {
+	bv, ok := ex.rates[base]
+	if !ok {
+		return 0, fmt.Errorf("could not find the currency %s", base)
+	}
+	dv, ok := ex.rates[destination]
+	if !ok {
+		return 0, fmt.Errorf("could not find the currency %s", destination)
+	}
+	return dv / bv, nil
 }
 
 var URI = "" //supposed to be european exchange xml api but no longer available
@@ -62,6 +74,7 @@ func (ex *ExchangeRates) getRates() error {
 		}
 		ex.rates[rate.Currency] = r
 	}
+	ex.rates["EUR"] = 1
 	return nil
 }
 
