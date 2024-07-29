@@ -25,12 +25,18 @@ func NewRates(l *log.Logger) (*ExchangeRates, error) {
 var URI = "" //supposed to be european exchange xml api but no longer available
 
 func getDataFromFile() ([]byte, error) {
-	fmt.Println("in")
-	data, err := os.ReadFile("./eurofxref-daily.xml")
+	filePath := getPathOfFile()
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
 	return data, nil
+}
+
+func getPathOfFile() string {
+	_, b, _, _ := runtime.Caller(0)
+	d := path.Join(path.Dir(b), "eurofxref-daily.xml")
+	return d
 }
 
 func (ex *ExchangeRates) getRates() error {
