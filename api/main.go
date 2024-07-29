@@ -11,6 +11,7 @@ import (
 	gohandlers "github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	protos "github.com/nishokbanand/learngrpc/protos/currency"
+	"github.com/nishokbanand/microservices/data"
 	"github.com/nishokbanand/microservices/handler"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -25,12 +26,14 @@ func main() {
 		logger.Fatal("cannot make a connection")
 	}
 	cc := protos.NewCurrencyClient(conn)
-
+	pdb := data.NewProductsDB(logger, cc)
 	//Create a handler with method ServeHTTP
-	ph := handler.NewProduct(logger, cc)
+	ph := handler.NewProduct(logger, pdb)
 	getRouter := sm.Methods(http.MethodGet).Subrouter()
 	getRouter.HandleFunc("/", ph.GetRequest)
+	getRouter.HandleFunc("/", ph.GetRequest).Queries("currency", "{[A-Z]{3}}")
 	getRouter.HandleFunc("/{id:[0-9]+}", ph.ListOneProduct)
+	getRouter.HandleFunc("/{id:[0-9]+}", ph.ListOneProduct).Queries("currency", "{[A-Z]{3}}")
 
 	postRouter := sm.Methods(http.MethodPost).Subrouter()
 	postRouter.HandleFunc("/", ph.PostRequest)

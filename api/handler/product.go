@@ -1,17 +1,18 @@
 package handler
 
 import (
-	protos "github.com/nishokbanand/learngrpc/protos/currency"
 	"log"
+
+	"github.com/nishokbanand/microservices/data"
 )
 
 type Product struct {
 	l *log.Logger
-	c protos.CurrencyClient
+	p *data.ProductsDB
 }
 
-func NewProduct(l *log.Logger, cc protos.CurrencyClient) *Product {
-	return &Product{l, cc}
+func NewProduct(l *log.Logger, p *data.ProductsDB) *Product {
+	return &Product{l, p}
 }
 
 type KeyProduct struct{}

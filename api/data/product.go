@@ -1,20 +1,23 @@
 package data
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"regexp"
 	"time"
 
 	"github.com/go-playground/validator/v10"
+	protos "github.com/nishokbanand/learngrpc/protos/currency"
 )
 
 type Product struct {
 	ID          int     `json:"id" `
 	Name        string  `json:"name" validate:"required"`
 	Description string  `json:"description"`
-	Price       float32 `json:"price" validate:"gt=0"`
+	Price       float64 `json:"price" validate:"gt=0"`
 	Sku         string  `json:"sku" validate:"required,sku"`
 	Created_on  string  `json:"-"`
 	Updated_on  string  `json:"-"`
@@ -50,8 +53,45 @@ func (p *Products) ToJSON(wr io.Writer) error {
 	return err
 }
 
-func GetProducts() Products {
-	return products
+type ProductsDB struct {
+	l *log.Logger
+	c protos.CurrencyClient
+}
+
+func NewProductsDB(l *log.Logger, c protos.CurrencyClient) *ProductsDB {
+	return &ProductsDB{l, c}
+}
+
+func (p *ProductsDB) GetProducts(dest_curr string) (Products, error) {
+	if dest_curr == "" {
+		return products, nil
+	}
+	rate, err := p.getRate(dest_curr)
+	if err != nil {
+		p.l.Println(err)
+		return nil, err
+	}
+	prod := Products{}
+	for _, p := range products {
+		np := *p
+		np.Price = np.Price * rate
+		prod = append(prod, &np)
+	}
+	return prod, nil
+}
+
+func (p *ProductsDB) GetProductByID(id int, dest_curr string) (*Product, error) {
+	if dest_curr == "" {
+		return products[id], nil
+	}
+	rate, err := p.getRate(dest_curr)
+	if err != nil {
+		p.l.Println(err)
+		return nil, err
+	}
+	np := *products[id]
+	np.Price = np.Price * rate
+	return &np, nil
 }
 
 func AddProduct(p *Product) {
@@ -105,6 +145,21 @@ var ProductNotFound = fmt.Errorf("Product not found")
 func getNextId() int {
 	id := products[len(products)-1].ID
 	return id + 1
+}
+func (p *ProductsDB) getRate(dest_curr string) (float64, error) {
+	rr := &protos.RateRequest{
+		Base:        protos.Currencies(protos.Currencies_value["EUR"]),
+		Destination: protos.Currencies(protos.Currencies_value[dest_curr]),
+	}
+	fmt.Println(rr.Base.String())
+	fmt.Println(rr.Destination.String())
+	resp, err := p.c.GetRate(context.Background(), rr)
+	if err != nil {
+		p.l.Println(err)
+		return 0, err
+	}
+	p.l.Println("Rate is", resp.Rate)
+	return resp.Rate, nil
 }
 
 var products = []*Product{
