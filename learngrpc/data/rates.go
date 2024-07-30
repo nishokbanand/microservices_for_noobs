@@ -5,10 +5,12 @@ import (
 	"encoding/xml"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"path"
 	"runtime"
 	"strconv"
+	"time"
 )
 
 type ExchangeRates struct {
@@ -76,6 +78,30 @@ func (ex *ExchangeRates) getRates() error {
 	}
 	ex.rates["EUR"] = 1
 	return nil
+}
+
+func (ex *ExchangeRates) MontiorRates(interval time.Duration) chan struct{} {
+	ret := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(interval)
+		for {
+			select {
+			case <-ticker.C:
+				for k, v := range ex.rates {
+					change := rand.Float64() / 10
+					dir := rand.Intn(1)
+					if dir == 0 {
+						change = 1 - change
+					} else {
+						change = 1 + change
+					}
+					ex.rates[k] = v * change
+				}
+				ret <- struct{}{}
+			}
+		}
+	}()
+	return ret
 }
 
 type Cubes struct {

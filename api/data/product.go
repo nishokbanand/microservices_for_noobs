@@ -54,12 +54,31 @@ func (p *Products) ToJSON(wr io.Writer) error {
 }
 
 type ProductsDB struct {
-	l *log.Logger
-	c protos.CurrencyClient
+	l          *log.Logger
+	c          protos.CurrencyClient
+	rates      map[string]float64
+	pub_client protos.Currency_SubscribeRatesClient
 }
 
 func NewProductsDB(l *log.Logger, c protos.CurrencyClient) *ProductsDB {
-	return &ProductsDB{l, c}
+	p := &ProductsDB{l, c, map[string]float64{}, nil}
+	go p.handleUpdates()
+	return p
+}
+func (p *ProductsDB) handleUpdates() {
+	sub, err := p.c.SubscribeRates(context.Background())
+	if err != nil {
+		p.l.Println("error in subscribing")
+	}
+	p.pub_client = sub
+	for {
+		rr, err := sub.Recv()
+		p.l.Println("received update message", "base", rr.GetBase(), "destination", rr.GetDestination())
+		if err != nil {
+			p.l.Println("error in receiving subscribed msg")
+		}
+		p.rates[rr.Destination.String()] = rr.Rate
+	}
 }
 
 func (p *ProductsDB) GetProducts(dest_curr string) (Products, error) {
@@ -147,13 +166,21 @@ func getNextId() int {
 	return id + 1
 }
 func (p *ProductsDB) getRate(dest_curr string) (float64, error) {
+	if rate, ok := p.rates[dest_curr]; ok {
+		return rate, nil
+	}
 	rr := &protos.RateRequest{
 		Base:        protos.Currencies(protos.Currencies_value["EUR"]),
 		Destination: protos.Currencies(protos.Currencies_value[dest_curr]),
 	}
 	fmt.Println(rr.Base.String())
 	fmt.Println(rr.Destination.String())
+	//make initial request
 	resp, err := p.c.GetRate(context.Background(), rr)
+	p.rates[dest_curr] = resp.Rate
+	//subscribe
+	p.pub_client.Send(rr)
+
 	if err != nil {
 		p.l.Println(err)
 		return 0, err
