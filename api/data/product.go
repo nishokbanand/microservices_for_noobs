@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	protos "github.com/nishokbanand/learngrpc/protos/currency"
+	"google.golang.org/grpc/status"
 )
 
 type Product struct {
@@ -177,14 +178,19 @@ func (p *ProductsDB) getRate(dest_curr string) (float64, error) {
 	fmt.Println(rr.Destination.String())
 	//make initial request
 	resp, err := p.c.GetRate(context.Background(), rr)
+	if err != nil {
+		p.l.Println(err)
+		if s, ok := status.FromError(err); ok {
+			md := s.Details()[0].(*protos.RateRequest)
+			return -1, fmt.Errorf("unable to get rate from server base and destination currencies are the same, base: %s, dest: %s", md.Base.String(), md.Destination.String())
+		}
+		return 0, err
+	}
 	p.rates[dest_curr] = resp.Rate
+	fmt.Println(resp)
 	//subscribe
 	p.pub_client.Send(rr)
 
-	if err != nil {
-		p.l.Println(err)
-		return 0, err
-	}
 	p.l.Println("Rate is", resp.Rate)
 	return resp.Rate, nil
 }

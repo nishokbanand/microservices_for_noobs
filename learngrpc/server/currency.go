@@ -8,6 +8,8 @@ import (
 
 	"github.com/nishokbanand/learngrpc/data"
 	protos "github.com/nishokbanand/learngrpc/protos/currency"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type Currency struct {
@@ -51,8 +53,22 @@ func (c *Currency) handleUpdates() {
 func (c *Currency) GetRate(ctx context.Context, rr *protos.RateRequest) (*protos.RateResponse, error) {
 	c.l.Println("base", rr.GetBase(), "destination", rr.GetDestination())
 	rate, err := c.ex.GetRate(rr.GetBase().String(), rr.GetDestination().String())
+	if rr.Base == rr.Destination {
+		input_err := status.Newf(
+			codes.InvalidArgument,
+			"Source %s and destination %s should not be the same",
+			rr.GetBase().String(),
+			rr.GetDestination().String(),
+		)
+		err, wde := input_err.WithDetails(rr)
+		if wde != nil {
+			return nil, wde
+		}
+		return nil, err.Err()
+	}
 	if err != nil {
 		c.l.Println(err)
+		return nil, err
 	}
 	return &protos.RateResponse{
 		Rate: rate,

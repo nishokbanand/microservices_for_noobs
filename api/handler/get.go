@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -11,7 +12,7 @@ func (prod *Product) GetRequest(rw http.ResponseWriter, r *http.Request) {
 	curr := r.URL.Query().Get("currency")
 	lp, err := prod.p.GetProducts(curr)
 	if err != nil {
-		http.Error(rw, "cannot get prod", http.StatusInternalServerError)
+		http.Error(rw, fmt.Sprintf("cannot get product :%s", err), http.StatusInternalServerError)
 		return
 	}
 	//we use NewEncoder instead of marshal to avoid having to buffer the output to an in memory slice of bytes
@@ -33,7 +34,7 @@ func (p *Product) ListOneProduct(rw http.ResponseWriter, r *http.Request) {
 	curr := r.URL.Query().Get("currency")
 	prod, err := p.p.GetProductByID(id, curr)
 	if err != nil {
-		http.Error(rw, "cannot get product", http.StatusBadRequest)
+		http.Error(rw, fmt.Sprintf("cannot get product :%s", err), http.StatusBadRequest)
 		return
 	}
 	//we use NewEncoder instead of marshal to avoid having to buffer the output to an in memory slice of bytes
